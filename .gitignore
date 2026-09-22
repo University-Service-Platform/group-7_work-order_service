@@ -1,0 +1,26 @@
+target/
+*.class
+
+# IDE & Editor files
+.idea/
+*.iml
+.vscode/
+.antigravity/
+
+# Environment & local config (never commit secrets or passwords)
+.env
+.env.*
+*.env
+application-local.yml
+application-local.properties
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Documentation
+HELP.md
