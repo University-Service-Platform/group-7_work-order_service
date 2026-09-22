@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: work-order-service
+  profiles:
+    active: dev
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+server:
+  port: 8082
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+# Placeholder-and-swap block (guide §7 / §13) - same secret as service-request-service
+# ONLY for the Sprint 1 service-to-service call. See README "Service-to-service auth".
+usm:
+  jwt:
+    secret: ${JWT_SECRET:"sprint1-placeholder-dev-secret-key-change-me-before-anything-real-CHANGE"}
+    issuer: ${JWT_ISSUER:"usm-g7-dev"}
+    expiration-minutes: 60
+
+# Where to reach the sibling service - swap host/port once QA/DevOps's Docker
+# Compose network gives it a service name instead of localhost.
+services:
+  service-request:
+    base-url: ${SERVICE_REQUEST_BASE_URL:"http://localhost:8081"}
+
+logging:
+  level:
+    com.usm.workorder: INFO
