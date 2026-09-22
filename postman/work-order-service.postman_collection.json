@@ -1,0 +1,164 @@
+{
+  "info": {
+    "name": "work-order-service (draft)",
+    "description": "Backend Dev draft for QA/DevOps to consolidate into the full team collection (guide §11). Set {{baseUrl}} = http://localhost:8082 and {{token}} from POST /api/dev/token. Requires service-request-service running with a triaged request already created.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8082"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Dev - Mint token (dev profile only)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/dev/token",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"userId\":\"officer-1\",\"role\":\"SERVICE_DESK_OFFICER\",\"department\":\"IT Services\"}"
+        }
+      }
+    },
+    {
+      "name": "Create work order (Service Desk Officer token required)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/work-orders",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"requestId\":\"SR-2026-0001\",\"assignedTechnicianId\":\"tech-1\",\"serviceTeam\":\"IT Services\",\"schedule\":\"Mon 9am-12pm\"}"
+        }
+      }
+    },
+    {
+      "name": "List my work orders (technician token required)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/work-orders"
+      }
+    },
+    {
+      "name": "Get by id",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/work-orders/WO-2026-0001"
+      }
+    },
+    {
+      "name": "Get by request id (Internal - Service token required)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/work-orders/by-request/SR-2026-0001"
+      }
+    },
+    {
+      "name": "Start (assigned technician token required)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/work-orders/WO-2026-0001/start"
+      }
+    },
+    {
+      "name": "Progress (assigned technician token required)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/work-orders/WO-2026-0001/progress",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"note\":\"Replaced the fuse, testing now\"}"
+        }
+      }
+    },
+    {
+      "name": "Resolution (assigned technician token required)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/work-orders/WO-2026-0001/resolution",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"resolution\":\"Replaced the projector bulb\"}"
+        }
+      }
+    },
+    {
+      "name": "Summary",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/work-orders/summary?groupBy=status"
+      }
+    }
+  ]
+}
