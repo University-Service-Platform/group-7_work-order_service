@@ -1,17 +1,24 @@
 package com.usm.workorder.security;
 
 /**
- * Same role set as service-request-service's Role enum (kept as a separate
- * copy in this service's own package - no shared library between
- * microservices, per the module's architecture rules). SERVICE is this
- * project's own placeholder for service-to-service calls, not one of
- * Group 5's real user roles - see README "Service-to-service auth".
+ * Role enum representing Group 5's published roles plus this service's internal SERVICE role.
+ *
+ * Real roles from Group 5's contract:
+ * ADMIN, STAFF, STUDENT, ACADEMIC_STAFF, ADMINISTRATIVE_STAFF,
+ * SERVICE_DESK_OFFICER, TECHNICIAN, RESOURCE_MANAGER, EVENT_ORGANIZER.
+ *
+ * SERVICE is this project's own placeholder for internal service-to-service calls,
+ * not one of Group 5's real user roles.
  */
 public enum Role {
+    ADMIN,
+    STAFF,
     STUDENT,
     ACADEMIC_STAFF,
-    ADMIN_STAFF,
+    ADMINISTRATIVE_STAFF,
     SERVICE_DESK_OFFICER,
     TECHNICIAN,
+    RESOURCE_MANAGER,
+    EVENT_ORGANIZER,
     SERVICE
 }

@@ -1,5 +1,8 @@
 package com.usm.workorder.service;
 
+import com.usm.workorder.client.FacilityValidationClient;
+import com.usm.workorder.client.FacilityValidationClientProperties;
+import com.usm.workorder.client.FacilityValidationSnapshot;
 import com.usm.workorder.client.ServiceRequestClient;
 import com.usm.workorder.client.ServiceRequestSnapshot;
 import com.usm.workorder.domain.WorkOrder;
@@ -49,6 +52,11 @@ class WorkOrderServiceImplTest {
     @Mock
     private ServiceRequestClient serviceRequestClient;
 
+    @Mock
+    private FacilityValidationClient facilityValidationClient;
+
+    private FacilityValidationClientProperties properties;
+
     private WorkOrderServiceImpl service;
 
     private static final AuthContext OFFICER = new AuthContext("officer-1", Role.SERVICE_DESK_OFFICER, "IT Services");
@@ -59,7 +67,8 @@ class WorkOrderServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new WorkOrderServiceImpl(repository, idGenerator, serviceRequestClient);
+        properties = new FacilityValidationClientProperties();
+        service = new WorkOrderServiceImpl(repository, idGenerator, serviceRequestClient, facilityValidationClient, properties);
     }
 
     private WorkOrder newWorkOrder(WorkOrderStatus status) {
@@ -113,6 +122,44 @@ class WorkOrderServiceImplTest {
         assertThatThrownBy(() -> service.create(request, OFFICER))
                 .isInstanceOf(InvalidRequestException.class)
                 .hasMessageContaining("already has an active work order");
+    }
+
+    @Test
+    void create_whenFacilityCheckFailsAndEnforceValidationIsFalse_stillSucceeds() {
+        when(serviceRequestClient.fetchRequest("SR-2026-0001"))
+                .thenReturn(new ServiceRequestSnapshot("SR-2026-0001", "ACKNOWLEDGED", "LAB-101", "FACILITY"));
+        when(facilityValidationClient.validateByCode("LAB-101"))
+                .thenReturn(new FacilityValidationSnapshot(false, false, false, false, "Resource not available", null, null, null));
+        when(repository.findByRequestId("SR-2026-0001")).thenReturn(List.of());
+        when(idGenerator.nextId()).thenReturn("WO-2026-0008");
+
+        CreateWorkOrderRequest request = new CreateWorkOrderRequest("SR-2026-0001", "tech-1", "Facilities", null);
+
+        WorkOrderResponse response = service.create(request, OFFICER);
+
+        assertThat(response.workOrderId()).isEqualTo("WO-2026-0008");
+        assertThat(response.status()).isEqualTo(WorkOrderStatus.ASSIGNED);
+        verify(facilityValidationClient).validateByCode("LAB-101");
+        verify(serviceRequestClient).pushStatusUpdate("SR-2026-0001", "ASSIGNED");
+    }
+
+    @Test
+    void create_whenFacilityCheckFailsAndEnforceValidationIsTrue_throwsInvalidRequestException() {
+        properties.setEnforceValidation(true);
+        when(serviceRequestClient.fetchRequest("SR-2026-0001"))
+                .thenReturn(new ServiceRequestSnapshot("SR-2026-0001", "ACKNOWLEDGED", "LAB-101", "FACILITY"));
+        when(facilityValidationClient.validateByCode("LAB-101"))
+                .thenReturn(new FacilityValidationSnapshot(false, false, false, false, "Resource with ID 999 does not exist", null, null, null));
+
+        CreateWorkOrderRequest request = new CreateWorkOrderRequest("SR-2026-0001", "tech-1", "Facilities", null);
+
+        assertThatThrownBy(() -> service.create(request, OFFICER))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("Cannot dispatch a technician to 'LAB-101'")
+                .hasMessageContaining("Resource with ID 999 does not exist");
+
+        verify(serviceRequestClient, never()).pushStatusUpdate(any(), any());
+        verify(repository, never()).save(any());
     }
 
     @Test
