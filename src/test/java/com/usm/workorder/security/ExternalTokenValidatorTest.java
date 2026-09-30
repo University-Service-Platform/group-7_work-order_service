@@ -180,4 +180,53 @@ class ExternalTokenValidatorTest {
                 .isInstanceOf(JwtException.class)
                 .hasMessageContaining("subject");
     }
+
+    @Test
+    void validate_rolesWithRolePrefix_stripsPrefixAndMapsCorrectly() throws Exception {
+        Date exp = Date.from(Instant.now().plus(1, ChronoUnit.HOURS));
+        String token = createSignedJwt(TEST_KID, ISSUER, AUDIENCE, exp, "usr-tech-01",
+                List.of("ROLE_TECHNICIAN", "ROLE_SERVICE_DESK_OFFICER"));
+
+        ExternalTokenValidationResult result = validator.validate(token);
+
+        assertThat(result.roles()).containsExactlyInAnyOrder(Role.TECHNICIAN, Role.SERVICE_DESK_OFFICER);
+    }
+
+    @Test
+    void validate_singularRoleClaim_mapsCorrectly() throws Exception {
+        Date exp = Date.from(Instant.now().plus(1, ChronoUnit.HOURS));
+        JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(TEST_KID).build();
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(ISSUER)
+                .audience(AUDIENCE)
+                .subject("usr-tech-01")
+                .expirationTime(exp)
+                .claim("role", "TECHNICIAN")
+                .build();
+        SignedJWT signedJWT = new SignedJWT(header, claims);
+        signedJWT.sign(new RSASSASigner(privateKey));
+
+        ExternalTokenValidationResult result = validator.validate(signedJWT.serialize());
+
+        assertThat(result.roles()).containsExactly(Role.TECHNICIAN);
+    }
+
+    @Test
+    void validate_authoritiesClaim_mapsCorrectly() throws Exception {
+        Date exp = Date.from(Instant.now().plus(1, ChronoUnit.HOURS));
+        JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(TEST_KID).build();
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(ISSUER)
+                .audience(AUDIENCE)
+                .subject("usr-tech-01")
+                .expirationTime(exp)
+                .claim("authorities", List.of("ROLE_ADMINISTRATIVE_STAFF"))
+                .build();
+        SignedJWT signedJWT = new SignedJWT(header, claims);
+        signedJWT.sign(new RSASSASigner(privateKey));
+
+        ExternalTokenValidationResult result = validator.validate(signedJWT.serialize());
+
+        assertThat(result.roles()).containsExactly(Role.ADMINISTRATIVE_STAFF);
+    }
 }

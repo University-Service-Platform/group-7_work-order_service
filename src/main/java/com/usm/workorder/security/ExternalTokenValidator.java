@@ -128,27 +128,64 @@ public class ExternalTokenValidator {
         } catch (ParseException ignored) {
         }
 
-        List<String> rawRoles;
-        try {
-            rawRoles = claims.getStringListClaim("roles");
-        } catch (ParseException ex) {
-            throw new JwtException("Invalid 'roles' claim format: " + ex.getMessage(), ex);
-        }
-
-        Set<Role> roles = new LinkedHashSet<>();
-        if (rawRoles != null) {
-            for (String roleStr : rawRoles) {
-                if (roleStr == null || roleStr.isBlank()) {
-                    continue;
-                }
-                try {
-                    roles.add(Role.valueOf(roleStr.trim()));
-                } catch (IllegalArgumentException unknownRole) {
-                    log.warn("Unrecognized role '{}' in token for user '{}', skipping", roleStr, sub);
-                }
-            }
-        }
+        Set<Role> roles = extractRoles(claims, sub);
 
         return new ExternalTokenValidationResult(sub, universityId, accountType, Collections.unmodifiableSet(roles));
+    }
+
+    private Set<Role> extractRoles(JWTClaimsSet claims, String sub) {
+        Set<String> rawRoleStrings = new LinkedHashSet<>();
+
+        // Check "roles", "role", and "authorities" claims for flexible inter-service compatibility
+        extractRawRoleStrings(claims.getClaim("roles"), rawRoleStrings);
+        extractRawRoleStrings(claims.getClaim("role"), rawRoleStrings);
+        extractRawRoleStrings(claims.getClaim("authorities"), rawRoleStrings);
+
+        Set<Role> roles = new LinkedHashSet<>();
+        for (String roleStr : rawRoleStrings) {
+            if (roleStr == null || roleStr.isBlank()) {
+                continue;
+            }
+            String normalized = roleStr.trim().toUpperCase();
+            if (normalized.startsWith("ROLE_")) {
+                normalized = normalized.substring("ROLE_".length()).trim();
+            }
+            if ("ADMIN_STAFF".equals(normalized)) {
+                normalized = "ADMINISTRATIVE_STAFF";
+            }
+            try {
+                roles.add(Role.valueOf(normalized));
+            } catch (IllegalArgumentException unknownRole) {
+                log.warn("Unrecognized role '{}' in token for user '{}', skipping", roleStr, sub);
+            }
+        }
+        return roles;
+    }
+
+    private void extractRawRoleStrings(Object claimValue, Set<String> target) {
+        if (claimValue == null) {
+            return;
+        }
+        if (claimValue instanceof List<?> list) {
+            for (Object item : list) {
+                if (item != null) {
+                    String str = String.valueOf(item).trim();
+                    if (!str.isBlank()) {
+                        target.add(str);
+                    }
+                }
+            }
+        } else if (claimValue instanceof String str) {
+            if (str.contains(",")) {
+                for (String part : str.split(",")) {
+                    String trimmed = part.trim();
+                    if (!trimmed.isBlank()) {
+                        target.add(trimmed);
+                    }
+                }
+            } else if (!str.isBlank()) {
+                target.add(str.trim());
+            }
+        }
     }
 }
