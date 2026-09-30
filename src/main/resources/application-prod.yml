@@ -14,8 +14,8 @@ spring:
     enabled: true
 
 server:
-  port: ${PORT:8082}
+  port: ${PORT}
 
 usm:
   dev-tools:
-    enabled: false
+    enabled: false

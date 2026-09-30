@@ -1,0 +1,35 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE & Editor files
+.idea/
+*.iml
+.vscode/
+.antigravity/
+
+# Build artifacts & dependencies
+target/
+*.class
+
+# Environment & secrets (CRUCIAL for security)
+.env
+.env.*
+*.env
+application-local.yml
+application-local.properties
+
+# Logs
+*.log
+logs/
+
+# Documentation & miscellaneous
+README.md
+HELP.md
+docs/
+postman/
+
+# OS files
+.DS_Store
+Thumbs.db
