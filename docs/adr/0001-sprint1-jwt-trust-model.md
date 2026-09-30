@@ -6,7 +6,7 @@
 The assignment's cross-team dependency table requires Group 7 to consume user/role/department validation from Group 5's identity-access-service. At the time this Sprint 1 backend was built, Group 5's real identity-access-service and published API contract were not yet available to integrate against.
 
 ## Decision
-service-request-service and work-order-service issue and verify their own JWTs locally using a shared placeholder secret (`usm.jwt.secret`) and a local `/api/dev/token` endpoint (gated by `usm.dev-tools.enabled`) for minting test tokens. This lets both services demonstrate full role-based authorization (STUDENT, ACADEMIC_STAFF, ADMIN_STAFF, SERVICE_DESK_OFFICER, TECHNICIAN, and an internal SERVICE role) end to end without depending on Group 5's delivery schedule.
+service-request-service and work-order-service issue and verify their own JWTs locally using a shared placeholder secret (`usm.jwt.secret`) and a local `/api/dev/token` endpoint (gated by `usm.dev-tools.enabled`) for minting test tokens. This lets both services demonstrate full role-based authorization (STUDENT, ACADEMIC_STAFF, ADMINISTRATIVE_STAFF, SERVICE_DESK_OFFICER, TECHNICIAN, and an internal SERVICE role) end to end without depending on Group 5's delivery schedule.
 
 ## Alternatives considered
 - Blocking Sprint 1 backend work until Group 5 publishes a stable identity API — rejected, since it would leave Group 7 with no demonstrable, testable backend by the deadline.

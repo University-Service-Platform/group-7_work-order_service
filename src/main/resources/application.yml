@@ -43,8 +43,16 @@ usm:
 # Where to reach the sibling service - swap host/port once QA/DevOps's Docker
 # Compose network gives it a service name instead of localhost.
 services:
+  identity:
+    base-url: ${IDENTITY_SERVICE_BASE_URL:http://localhost:8001}
+    jwks-uri: ${services.identity.base-url}/.well-known/jwks.json
+    issuer: university-identity-service
+    audience: university-services-platform
   service-request:
     base-url: ${SERVICE_REQUEST_BASE_URL:"http://localhost:8081"}
+  group6-facility:
+    base-url: http://localhost:8081
+    enforce-validation: false
 
 logging:
   level:

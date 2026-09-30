@@ -65,7 +65,7 @@ in `application.yml`).
 ### Minting a test JWT (dev profile only)
 
 Same mechanism as `service-request-service` - see that service's README.
-`role` must be one of `STUDENT`, `ACADEMIC_STAFF`, `ADMIN_STAFF`,
+`role` must be one of `STUDENT`, `ACADEMIC_STAFF`, `ADMINISTRATIVE_STAFF`,
 `SERVICE_DESK_OFFICER`, `TECHNICIAN`, `SERVICE`. For this service you'll
 mostly want `SERVICE_DESK_OFFICER` (to create work orders) and `TECHNICIAN`
 (to start/progress/resolve them) - and the `assignedTechnicianId` you create

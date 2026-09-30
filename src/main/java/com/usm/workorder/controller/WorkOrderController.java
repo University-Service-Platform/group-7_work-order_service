@@ -59,7 +59,7 @@ public class WorkOrderController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('SERVICE_DESK_OFFICER','ADMIN_STAFF')")
+    @PreAuthorize("hasAnyRole('SERVICE_DESK_OFFICER','ADMINISTRATIVE_STAFF')")
     @Operation(summary = "Workload summaries (shares FR-12)")
     public SummaryResponse summary(@RequestParam(required = false) String groupBy) {
         return service.summary(groupBy, AuthContextHolder.require());

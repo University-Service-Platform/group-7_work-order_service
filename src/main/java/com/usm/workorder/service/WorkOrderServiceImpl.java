@@ -1,5 +1,8 @@
 package com.usm.workorder.service;
 
+import com.usm.workorder.client.FacilityValidationClient;
+import com.usm.workorder.client.FacilityValidationClientProperties;
+import com.usm.workorder.client.FacilityValidationSnapshot;
 import com.usm.workorder.client.ServiceRequestClient;
 import com.usm.workorder.client.ServiceRequestSnapshot;
 import com.usm.workorder.domain.WorkOrder;
@@ -15,6 +18,9 @@ import com.usm.workorder.exception.ResourceNotFoundException;
 import com.usm.workorder.repository.WorkOrderRepository;
 import com.usm.workorder.security.AuthContext;
 import com.usm.workorder.security.Role;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +35,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class WorkOrderServiceImpl implements WorkOrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkOrderServiceImpl.class);
 
     /**
      * BR-06: mirrors service-request-service's RequestStatus.ACKNOWLEDGED/ESCALATED (the statuses
@@ -47,12 +55,24 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private final WorkOrderRepository repository;
     private final WorkOrderIdGenerator idGenerator;
     private final ServiceRequestClient serviceRequestClient;
+    private final FacilityValidationClient facilityValidationClient;
+    private final FacilityValidationClientProperties properties;
 
     public WorkOrderServiceImpl(WorkOrderRepository repository, WorkOrderIdGenerator idGenerator,
                                  ServiceRequestClient serviceRequestClient) {
+        this(repository, idGenerator, serviceRequestClient, null, new FacilityValidationClientProperties());
+    }
+
+    @Autowired
+    public WorkOrderServiceImpl(WorkOrderRepository repository, WorkOrderIdGenerator idGenerator,
+                                 ServiceRequestClient serviceRequestClient,
+                                 FacilityValidationClient facilityValidationClient,
+                                 FacilityValidationClientProperties properties) {
         this.repository = repository;
         this.idGenerator = idGenerator;
         this.serviceRequestClient = serviceRequestClient;
+        this.facilityValidationClient = facilityValidationClient;
+        this.properties = properties != null ? properties : new FacilityValidationClientProperties();
     }
 
     @Override
@@ -64,6 +84,21 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                     "Cannot create a work order for request " + request.requestId()
                             + " - it is in status " + snapshot.status()
                             + ", which means it hasn't been triaged yet (or was rejected/cancelled/closed).");
+        }
+
+        if (facilityValidationClient != null
+                && ("FACILITY".equalsIgnoreCase(snapshot.category()) || "EQUIPMENT".equalsIgnoreCase(snapshot.category()))
+                && snapshot.location() != null && !snapshot.location().isBlank()) {
+            FacilityValidationSnapshot facilityCheck = facilityValidationClient.validateByCode(snapshot.location());
+            if (properties.isEnforceValidation() && !facilityCheck.validForReservation()) {
+                throw new InvalidRequestException(
+                        "Cannot dispatch a technician to '" + snapshot.location() + "': " + facilityCheck.message());
+            }
+            if (!facilityCheck.validForReservation()) {
+                // non-blocking by default — just log, do not change behavior
+                log.warn("Facility validation failed for location '{}' (category: {}): {}. Proceeding as enforceValidation is disabled.",
+                        snapshot.location(), snapshot.category(), facilityCheck.message());
+            }
         }
 
         // Extra guard beyond the guide's explicit BR list: refuse a second active work order for
@@ -92,7 +127,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     public List<WorkOrderResponse> list(String technicianIdFilter, WorkOrderStatus statusFilter, AuthContext caller) {
         List<WorkOrder> base;
 
-        if (CAN_VIEW_ALL.contains(caller.getRole())) {
+        if (caller.hasAnyRole(CAN_VIEW_ALL)) {
             base = statusFilter != null ? repository.findByStatus(statusFilter) : repository.findAll();
             if (technicianIdFilter != null) {
                 base = base.stream().filter(w -> w.getAssignedTechnicianId().equals(technicianIdFilter)).toList();
@@ -208,7 +243,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     private void assertCanView(WorkOrder entity, AuthContext caller) {
         boolean isAssignedTechnician = entity.getAssignedTechnicianId().equals(caller.getUserId());
-        if (!isAssignedTechnician && !CAN_VIEW_ALL.contains(caller.getRole())) {
+        if (!isAssignedTechnician && !caller.hasAnyRole(CAN_VIEW_ALL)) {
             throw new ForbiddenOperationException("You can only view work orders assigned to you.");
         }
     }

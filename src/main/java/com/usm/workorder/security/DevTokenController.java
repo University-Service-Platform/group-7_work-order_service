@@ -27,7 +27,11 @@ public class DevTokenController {
 
     @PostMapping("/token")
     public Map<String, String> issueDevToken(@RequestBody DevTokenRequest request) {
-        Role role = Role.valueOf(request.role().toUpperCase());
+        String roleStr = request.role().toUpperCase();
+        if ("ADMIN_STAFF".equals(roleStr)) {
+            roleStr = "ADMINISTRATIVE_STAFF";
+        }
+        Role role = Role.valueOf(roleStr);
         String token = jwtTokenService.generateToken(request.userId(), role, request.department());
         return Map.of("token", token);
     }
