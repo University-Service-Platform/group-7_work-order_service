@@ -13,9 +13,9 @@ spring:
   flyway:
     enabled: true
 
-  server:
-    port: 8081
+server:
+  port: ${PORT:8082}
 
-  usm:
-    dev-tools:
-      enabled: false
+usm:
+  dev-tools:
+    enabled: false
