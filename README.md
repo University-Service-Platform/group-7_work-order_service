@@ -95,6 +95,7 @@ are in Swagger.
 - **BR-08** - `/resolution` rejects a blank `resolution` twice (DTO `@NotBlank` *and* a defensive service-layer check).
 - **BR-09** - every status change and its timestamp are set together in one `WorkOrder` method (`start`, `resolve`) - never a nullable column filled in later.
 - **Ownership** (this service's equivalent of BR-10) - only the *assigned* technician can `/start`, `/progress`, or `/resolution` their own work order; Service Desk Officer cannot act on a technician's behalf on those three endpoints, matching guide §4.2's "who can call it" column exactly.
+- **Facility validation (Group 6)** - for work orders linked to requests in `FACILITY` or `EQUIPMENT` categories, `create()` calls `FacilityValidationClient.validateByCode()` using the parent request's `location` field. Under the default soft-fail design (`services.group6-facility.enforce-validation: false`), a validation failure or unreachable facility service logs a warning and does not block work order creation. *(Note: To test facility validation with valid seed codes like `LAB-101`, see `service-request-service`'s seed-code documentation, as `location` is fetched internally from the linked service request rather than supplied in the create request body).*
 
 ## The cross-service integration (guide §10 step 3)
 
@@ -131,6 +132,7 @@ service-to-service auth, only `JwtProperties`/`JwtTokenService`/
 | --- | --- | --- |
 | JWT signing key + claim names | `application.yml` (`usm.jwt.*`), `JwtTokenService` | Group 5 confirms real claim names/signing config |
 | `service-request-service` base URL = `localhost:8081` | `application.yml` (`services.service-request.base-url`) | QA/DevOps's Docker Compose gives it a service name on the shared network |
+| `group6-facility` base URL = `http://localhost:9091` | `application.yml` (`services.group6-facility.base-url`) | Group 6 gives a real staging/Docker host |
 | Status names as plain strings in `ServiceRequestClient`/`WorkOrderServiceImpl` | `TRIAGEABLE_REQUEST_STATUSES` constant | Tech Lead locks the final `RequestStatus` names |
 | Response envelope / error shape | `GlobalExceptionHandler`, `ApiError` | API Gateway team agrees a shared shape |
 
@@ -157,12 +159,9 @@ section (and your PR descriptions) with specifics as you extend the code.
 
 ## What's still open (do these yourself - see guide §14)
 
-- Confirm real JWT claim names with Group 5.
 - Get the final status enum names signed off by your Tech Lead (this service
   and `service-request-service` must agree on the exact strings exchanged
   over `pushStatusUpdate`).
 - Decide, with your Tech Lead, what (if anything) drives `WorkOrderStatus.CLOSED`
   / `closure_time` in a later sprint - no endpoint builds it yet.
 - Agree the API Gateway base path / response envelope.
-- Wire this service into the real Jira board and open your first PR - see
-  guide §15 Phase 4.
