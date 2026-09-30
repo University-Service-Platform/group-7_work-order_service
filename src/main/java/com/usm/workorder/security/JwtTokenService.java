@@ -61,15 +61,31 @@ public class JwtTokenService {
 
             String userId = claims.getSubject();
             String roleValue = claims.get(ROLE_CLAIM, String.class);
+            if (roleValue == null) {
+                Object rolesObj = claims.get("roles");
+                if (rolesObj instanceof String s) {
+                    roleValue = s;
+                } else if (rolesObj instanceof java.util.List<?> list && !list.isEmpty()) {
+                    roleValue = String.valueOf(list.get(0));
+                }
+            }
             String department = claims.get(DEPARTMENT_CLAIM, String.class);
 
-            if (userId == null || roleValue == null) {
+            if (userId == null || roleValue == null || roleValue.isBlank()) {
                 return Optional.empty();
+            }
+
+            String normalizedRole = roleValue.trim().toUpperCase();
+            if (normalizedRole.startsWith("ROLE_")) {
+                normalizedRole = normalizedRole.substring("ROLE_".length()).trim();
+            }
+            if ("ADMIN_STAFF".equals(normalizedRole)) {
+                normalizedRole = "ADMINISTRATIVE_STAFF";
             }
 
             Role role;
             try {
-                role = Role.valueOf(roleValue);
+                role = Role.valueOf(normalizedRole);
             } catch (IllegalArgumentException unknownRole) {
                 return Optional.empty();
             }
