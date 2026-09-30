@@ -130,7 +130,7 @@ service-to-service auth, only `JwtProperties`/`JwtTokenService`/
 
 | Placeholder today | File(s) | Swap when |
 | --- | --- | --- |
-| JWT signing key + claim names | `application.yml` (`usm.jwt.*`), `JwtTokenService` | Group 5 confirms real claim names/signing config |
+| JWT signing key + claim names | `application.yml` (`usm.jwt.*`), `JwtTokenService` | Resolved: RS256/JWKS verification and live re-validation against Group 5's real contract are built and tested |
 | `service-request-service` base URL = `localhost:8081` | `application.yml` (`services.service-request.base-url`) | QA/DevOps's Docker Compose gives it a service name on the shared network |
 | `identity-access-service` base URL = `localhost:8001` | `application.yml` (`services.identity.base-url`) | Real staging value is `https://university-identity-service.onrender.com` (`localhost:8001` remains local-dev default; note 60–90s cold-start timeout on Render) |
 | `group6-facility` base URL = `http://localhost:9091` | `application.yml` (`services.group6-facility.base-url`) | Group 6 gives a real staging/Docker host |

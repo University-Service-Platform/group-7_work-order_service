@@ -77,8 +77,8 @@ class WorkOrderServiceImplTest {
         properties = new FacilityValidationClientProperties();
         service = new WorkOrderServiceImpl(repository, idGenerator, serviceRequestClient,
                 facilityValidationClient, properties, identityValidationClient);
-        lenient().when(identityValidationClient.validate(any()))
-                .thenReturn(IdentityValidationSnapshot.active("user-1"));
+        lenient().when(identityValidationClient.validateUser(any(), any(), any()))
+                .thenReturn(IdentityValidationSnapshot.valid());
     }
 
     private WorkOrder newWorkOrder(WorkOrderStatus status) {
@@ -389,33 +389,46 @@ class WorkOrderServiceImplTest {
 
     @Test
     void create_whenIdentityValidationInactive_failsClosed() {
-        when(identityValidationClient.validate(any()))
-                .thenReturn(IdentityValidationSnapshot.inactive("officer-1", "Account inactive"));
+        when(identityValidationClient.validateUser(eq("officer-1"), eq("SERVICE_DESK_OFFICER"), any()))
+                .thenReturn(IdentityValidationSnapshot.invalid("ACCOUNT_INACTIVE: Account suspended"));
 
         CreateWorkOrderRequest request = new CreateWorkOrderRequest("SR-2026-0001", "tech-1", "Facilities", null);
 
         assertThatThrownBy(() -> service.create(request, OFFICER))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("inactive");
+                .hasMessageContaining("ACCOUNT_INACTIVE");
         verify(serviceRequestClient, never()).pushStatusUpdate(any(), any());
     }
 
     @Test
     void create_whenIdentityValidationNotFound_failsClosed() {
-        when(identityValidationClient.validate(any()))
-                .thenReturn(IdentityValidationSnapshot.notFound("User not found"));
+        when(identityValidationClient.validateUser(eq("officer-1"), eq("SERVICE_DESK_OFFICER"), any()))
+                .thenReturn(IdentityValidationSnapshot.invalid("USER_NOT_FOUND: User does not exist"));
 
         CreateWorkOrderRequest request = new CreateWorkOrderRequest("SR-2026-0001", "tech-1", "Facilities", null);
 
         assertThatThrownBy(() -> service.create(request, OFFICER))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("not found");
+                .hasMessageContaining("USER_NOT_FOUND");
+        verify(serviceRequestClient, never()).pushStatusUpdate(any(), any());
+    }
+
+    @Test
+    void create_whenIdentityValidationNotAuthorized_failsClosed() {
+        when(identityValidationClient.validateUser(eq("officer-1"), eq("SERVICE_DESK_OFFICER"), any()))
+                .thenReturn(IdentityValidationSnapshot.notAuthorized("User lacks SERVICE_DESK_OFFICER role"));
+
+        CreateWorkOrderRequest request = new CreateWorkOrderRequest("SR-2026-0001", "tech-1", "Facilities", null);
+
+        assertThatThrownBy(() -> service.create(request, OFFICER))
+                .isInstanceOf(ForbiddenOperationException.class)
+                .hasMessageContaining("SERVICE_DESK_OFFICER");
         verify(serviceRequestClient, never()).pushStatusUpdate(any(), any());
     }
 
     @Test
     void create_whenIdentityValidationUnreachable_failsClosed() {
-        when(identityValidationClient.validate(any()))
+        when(identityValidationClient.validateUser(any(), any(), any()))
                 .thenThrow(new UpstreamServiceException("Connection refused to identity-access-service"));
 
         CreateWorkOrderRequest request = new CreateWorkOrderRequest("SR-2026-0001", "tech-1", "Facilities", null);
@@ -428,7 +441,7 @@ class WorkOrderServiceImplTest {
 
     @Test
     void create_whenIdentityValidationTimeout_failsClosed() {
-        when(identityValidationClient.validate(any()))
+        when(identityValidationClient.validateUser(any(), any(), any()))
                 .thenThrow(new UpstreamServiceException("Read timed out from identity-access-service"));
 
         CreateWorkOrderRequest request = new CreateWorkOrderRequest("SR-2026-0001", "tech-1", "Facilities", null);
@@ -441,29 +454,40 @@ class WorkOrderServiceImplTest {
 
     @Test
     void start_whenIdentityValidationInactive_failsClosed() {
-        when(identityValidationClient.validate(any()))
-                .thenReturn(IdentityValidationSnapshot.inactive("tech-1", "Technician account deactivated"));
+        when(identityValidationClient.validateUser(eq("tech-1"), eq("TECHNICIAN"), any()))
+                .thenReturn(IdentityValidationSnapshot.invalid("ACCOUNT_INACTIVE: Technician account deactivated"));
 
         assertThatThrownBy(() -> service.start("WO-2026-0001", TECH))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("inactive");
+                .hasMessageContaining("ACCOUNT_INACTIVE");
         verify(repository, never()).save(any());
     }
 
     @Test
     void start_whenIdentityValidationNotFound_failsClosed() {
-        when(identityValidationClient.validate(any()))
-                .thenReturn(IdentityValidationSnapshot.notFound("Technician not found"));
+        when(identityValidationClient.validateUser(eq("tech-1"), eq("TECHNICIAN"), any()))
+                .thenReturn(IdentityValidationSnapshot.invalid("USER_NOT_FOUND: Technician not found"));
 
         assertThatThrownBy(() -> service.start("WO-2026-0001", TECH))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("not found");
+                .hasMessageContaining("USER_NOT_FOUND");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void start_whenIdentityValidationNotAuthorized_failsClosed() {
+        when(identityValidationClient.validateUser(eq("tech-1"), eq("TECHNICIAN"), any()))
+                .thenReturn(IdentityValidationSnapshot.notAuthorized("Role mismatch: user is not a TECHNICIAN"));
+
+        assertThatThrownBy(() -> service.start("WO-2026-0001", TECH))
+                .isInstanceOf(ForbiddenOperationException.class)
+                .hasMessageContaining("TECHNICIAN");
         verify(repository, never()).save(any());
     }
 
     @Test
     void start_whenIdentityValidationUnreachable_failsClosed() {
-        when(identityValidationClient.validate(any()))
+        when(identityValidationClient.validateUser(any(), any(), any()))
                 .thenThrow(new UpstreamServiceException("Identity service unreachable"));
 
         assertThatThrownBy(() -> service.start("WO-2026-0001", TECH))
@@ -474,7 +498,7 @@ class WorkOrderServiceImplTest {
 
     @Test
     void start_whenIdentityValidationTimeout_failsClosed() {
-        when(identityValidationClient.validate(any()))
+        when(identityValidationClient.validateUser(any(), any(), any()))
                 .thenThrow(new UpstreamServiceException("Identity service timed out"));
 
         assertThatThrownBy(() -> service.start("WO-2026-0001", TECH))
@@ -485,31 +509,31 @@ class WorkOrderServiceImplTest {
 
     @Test
     void addProgress_whenIdentityValidationInactive_failsClosed() {
-        when(identityValidationClient.validate(any()))
-                .thenReturn(IdentityValidationSnapshot.inactive("tech-1", "Account revoked"));
+        when(identityValidationClient.validateUser(eq("tech-1"), eq("TECHNICIAN"), any()))
+                .thenReturn(IdentityValidationSnapshot.invalid("ACCOUNT_INACTIVE: Account revoked"));
 
         ProgressUpdateRequest request = new ProgressUpdateRequest("Diagnosed issue");
 
         assertThatThrownBy(() -> service.addProgress("WO-2026-0001", request, TECH))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("inactive");
+                .hasMessageContaining("ACCOUNT_INACTIVE");
     }
 
     @Test
     void addProgress_whenIdentityValidationNotFound_failsClosed() {
-        when(identityValidationClient.validate(any()))
-                .thenReturn(IdentityValidationSnapshot.notFound("User not found"));
+        when(identityValidationClient.validateUser(eq("tech-1"), eq("TECHNICIAN"), any()))
+                .thenReturn(IdentityValidationSnapshot.invalid("USER_NOT_FOUND: User not found"));
 
         ProgressUpdateRequest request = new ProgressUpdateRequest("Diagnosed issue");
 
         assertThatThrownBy(() -> service.addProgress("WO-2026-0001", request, TECH))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("not found");
+                .hasMessageContaining("USER_NOT_FOUND");
     }
 
     @Test
     void addProgress_whenIdentityValidationUnreachable_failsClosed() {
-        when(identityValidationClient.validate(any()))
+        when(identityValidationClient.validateUser(any(), any(), any()))
                 .thenThrow(new UpstreamServiceException("Network error reaching identity service"));
 
         ProgressUpdateRequest request = new ProgressUpdateRequest("Diagnosed issue");
@@ -521,7 +545,7 @@ class WorkOrderServiceImplTest {
 
     @Test
     void addProgress_whenIdentityValidationTimeout_failsClosed() {
-        when(identityValidationClient.validate(any()))
+        when(identityValidationClient.validateUser(any(), any(), any()))
                 .thenThrow(new UpstreamServiceException("Socket timeout from identity service"));
 
         ProgressUpdateRequest request = new ProgressUpdateRequest("Diagnosed issue");
@@ -533,33 +557,33 @@ class WorkOrderServiceImplTest {
 
     @Test
     void resolve_whenIdentityValidationInactive_failsClosed() {
-        when(identityValidationClient.validate(any()))
-                .thenReturn(IdentityValidationSnapshot.inactive("tech-1", "Technician suspended"));
+        when(identityValidationClient.validateUser(eq("tech-1"), eq("TECHNICIAN"), any()))
+                .thenReturn(IdentityValidationSnapshot.invalid("ACCOUNT_INACTIVE: Technician suspended"));
 
         ResolutionRequest request = new ResolutionRequest("Completed repair");
 
         assertThatThrownBy(() -> service.resolve("WO-2026-0001", request, TECH))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("inactive");
+                .hasMessageContaining("ACCOUNT_INACTIVE");
         verify(serviceRequestClient, never()).pushStatusUpdate(any(), any());
     }
 
     @Test
     void resolve_whenIdentityValidationNotFound_failsClosed() {
-        when(identityValidationClient.validate(any()))
-                .thenReturn(IdentityValidationSnapshot.notFound("Technician not found"));
+        when(identityValidationClient.validateUser(eq("tech-1"), eq("TECHNICIAN"), any()))
+                .thenReturn(IdentityValidationSnapshot.invalid("USER_NOT_FOUND: Technician not found"));
 
         ResolutionRequest request = new ResolutionRequest("Completed repair");
 
         assertThatThrownBy(() -> service.resolve("WO-2026-0001", request, TECH))
                 .isInstanceOf(ForbiddenOperationException.class)
-                .hasMessageContaining("not found");
+                .hasMessageContaining("USER_NOT_FOUND");
         verify(serviceRequestClient, never()).pushStatusUpdate(any(), any());
     }
 
     @Test
     void resolve_whenIdentityValidationUnreachable_failsClosed() {
-        when(identityValidationClient.validate(any()))
+        when(identityValidationClient.validateUser(any(), any(), any()))
                 .thenThrow(new UpstreamServiceException("Identity service offline"));
 
         ResolutionRequest request = new ResolutionRequest("Completed repair");
@@ -572,7 +596,7 @@ class WorkOrderServiceImplTest {
 
     @Test
     void resolve_whenIdentityValidationTimeout_failsClosed() {
-        when(identityValidationClient.validate(any()))
+        when(identityValidationClient.validateUser(any(), any(), any()))
                 .thenThrow(new UpstreamServiceException("Gateway timeout (504) from identity service"));
 
         ResolutionRequest request = new ResolutionRequest("Completed repair");

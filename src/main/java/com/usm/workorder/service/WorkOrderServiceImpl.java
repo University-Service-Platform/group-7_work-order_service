@@ -89,7 +89,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     @Override
     public WorkOrderResponse create(CreateWorkOrderRequest request, AuthContext caller) {
-        revalidateCaller(caller);
+        revalidateCaller(caller, "SERVICE_DESK_OFFICER");
         // BR-06: a work order cannot exist without a valid, triaged, non-rejected request.
         ServiceRequestSnapshot snapshot = serviceRequestClient.fetchRequest(request.requestId());
         if (!TRIAGEABLE_REQUEST_STATUSES.contains(snapshot.status())) {
@@ -167,7 +167,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     @Override
     public WorkOrderResponse start(String workOrderId, AuthContext caller) {
-        revalidateCaller(caller);
+        revalidateCaller(caller, "TECHNICIAN");
         WorkOrder entity = findOrThrow(workOrderId);
         assertIsAssignedTechnician(entity, caller);
 
@@ -183,7 +183,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     @Override
     public WorkOrderResponse addProgress(String workOrderId, ProgressUpdateRequest request, AuthContext caller) {
-        revalidateCaller(caller);
+        revalidateCaller(caller, "TECHNICIAN");
         WorkOrder entity = findOrThrow(workOrderId);
         assertIsAssignedTechnician(entity, caller);
 
@@ -200,7 +200,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     @Override
     public WorkOrderResponse resolve(String workOrderId, ResolutionRequest request, AuthContext caller) {
-        revalidateCaller(caller);
+        revalidateCaller(caller, "TECHNICIAN");
         WorkOrder entity = findOrThrow(workOrderId);
         assertIsAssignedTechnician(entity, caller);
 
@@ -270,15 +270,20 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         }
     }
 
-    private void revalidateCaller(AuthContext caller) {
+    private void revalidateCaller(AuthContext caller, String requiredRole) {
         if (identityValidationClient != null) {
-            String token = caller != null ? caller.getRawToken() : null;
-            IdentityValidationSnapshot snapshot = identityValidationClient.validate(token);
-            if (snapshot == null || !snapshot.exists()) {
-                throw new ForbiddenOperationException("Identity re-validation failed: caller not found");
+            if (caller == null || caller.getUserId() == null) {
+                throw new ForbiddenOperationException("Identity re-validation failed: missing caller context");
             }
-            if (!snapshot.active()) {
-                throw new ForbiddenOperationException("Identity re-validation failed: caller account is inactive");
+            String token = caller.getRawToken();
+            IdentityValidationSnapshot snapshot = identityValidationClient.validateUser(caller.getUserId(), requiredRole, token);
+            if (snapshot == null || !snapshot.isValid()) {
+                String reason = snapshot != null && snapshot.message() != null ? snapshot.message() : "User is invalid or inactive";
+                throw new ForbiddenOperationException("Identity re-validation failed: " + reason);
+            }
+            if (!snapshot.isAuthorized()) {
+                String reason = snapshot != null && snapshot.message() != null ? snapshot.message() : "User not authorized for required role " + requiredRole;
+                throw new ForbiddenOperationException("Identity re-validation failed: " + reason);
             }
         }
     }
