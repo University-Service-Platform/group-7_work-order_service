@@ -135,6 +135,10 @@ class JwtAuthFilterTest {
         boolean hasTechnicianRole = auth.getAuthorities().stream()
                 .anyMatch(a -> "ROLE_TECHNICIAN".equals(a.getAuthority()));
         assertThat(hasTechnicianRole).isTrue();
+
+        // Verify raw token is retained
+        assertThat(context.getRawToken()).isEqualTo(token);
+        assertThat(auth.getCredentials()).isEqualTo(token);
     }
 
     @Test
@@ -158,6 +162,8 @@ class JwtAuthFilterTest {
         assertThat(context.getDepartmentOrServiceUnit()).isEqualTo("Facilities");
         assertThat(auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList())
                 .containsExactly("ROLE_TECHNICIAN");
+        assertThat(context.getRawToken()).isEqualTo(hs256Token);
+        assertThat(auth.getCredentials()).isEqualTo(hs256Token);
     }
 
     @Test
@@ -179,6 +185,8 @@ class JwtAuthFilterTest {
         assertThat(context.isServiceCall()).isTrue();
         assertThat(auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList())
                 .containsExactly("ROLE_SERVICE");
+        assertThat(context.getRawToken()).isEqualTo(serviceToken);
+        assertThat(auth.getCredentials()).isEqualTo(serviceToken);
     }
 
     @Test

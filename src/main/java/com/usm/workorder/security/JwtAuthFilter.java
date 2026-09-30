@@ -66,7 +66,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                             result.roles(),
                             null,
                             result.universityId(),
-                            result.accountType()
+                            result.accountType(),
+                            token
                     );
 
                     // Grant a ROLE_<X> authority for EVERY role in the returned set
@@ -74,7 +75,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                             .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
                             .toList();
 
-                    var authentication = new UsernamePasswordAuthenticationToken(authContext, null, authorities);
+                    var authentication = new UsernamePasswordAuthenticationToken(authContext, token, authorities);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 } catch (JwtException | IllegalArgumentException ex) {
                     log.warn("Invalid external identity token: {}", ex.getMessage());
@@ -84,10 +85,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 Optional<AuthContext> parsed = jwtTokenService.parseToken(token);
 
                 parsed.ifPresent(authContext -> {
-                    List<SimpleGrantedAuthority> authorities = authContext.getRoles().stream()
+                    AuthContext withToken = new AuthContext(
+                            authContext.getUserId(),
+                            authContext.getRoles(),
+                            authContext.getDepartmentOrServiceUnit(),
+                            authContext.getUniversityId(),
+                            authContext.getAccountType(),
+                            token
+                    );
+                    List<SimpleGrantedAuthority> authorities = withToken.getRoles().stream()
                             .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
                             .toList();
-                    var authentication = new UsernamePasswordAuthenticationToken(authContext, null, authorities);
+                    var authentication = new UsernamePasswordAuthenticationToken(withToken, token, authorities);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 });
             }

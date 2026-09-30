@@ -3,6 +3,8 @@ package com.usm.workorder.service;
 import com.usm.workorder.client.FacilityValidationClient;
 import com.usm.workorder.client.FacilityValidationClientProperties;
 import com.usm.workorder.client.FacilityValidationSnapshot;
+import com.usm.workorder.client.IdentityValidationClient;
+import com.usm.workorder.client.IdentityValidationSnapshot;
 import com.usm.workorder.client.ServiceRequestClient;
 import com.usm.workorder.client.ServiceRequestSnapshot;
 import com.usm.workorder.domain.WorkOrder;
@@ -57,26 +59,37 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private final ServiceRequestClient serviceRequestClient;
     private final FacilityValidationClient facilityValidationClient;
     private final FacilityValidationClientProperties properties;
+    private final IdentityValidationClient identityValidationClient;
 
     public WorkOrderServiceImpl(WorkOrderRepository repository, WorkOrderIdGenerator idGenerator,
                                  ServiceRequestClient serviceRequestClient) {
-        this(repository, idGenerator, serviceRequestClient, null, new FacilityValidationClientProperties());
+        this(repository, idGenerator, serviceRequestClient, null, new FacilityValidationClientProperties(), null);
+    }
+
+    public WorkOrderServiceImpl(WorkOrderRepository repository, WorkOrderIdGenerator idGenerator,
+                                 ServiceRequestClient serviceRequestClient,
+                                 FacilityValidationClient facilityValidationClient,
+                                 FacilityValidationClientProperties properties) {
+        this(repository, idGenerator, serviceRequestClient, facilityValidationClient, properties, null);
     }
 
     @Autowired
     public WorkOrderServiceImpl(WorkOrderRepository repository, WorkOrderIdGenerator idGenerator,
                                  ServiceRequestClient serviceRequestClient,
                                  FacilityValidationClient facilityValidationClient,
-                                 FacilityValidationClientProperties properties) {
+                                 FacilityValidationClientProperties properties,
+                                 @Autowired(required = false) IdentityValidationClient identityValidationClient) {
         this.repository = repository;
         this.idGenerator = idGenerator;
         this.serviceRequestClient = serviceRequestClient;
         this.facilityValidationClient = facilityValidationClient;
         this.properties = properties != null ? properties : new FacilityValidationClientProperties();
+        this.identityValidationClient = identityValidationClient;
     }
 
     @Override
     public WorkOrderResponse create(CreateWorkOrderRequest request, AuthContext caller) {
+        revalidateCaller(caller);
         // BR-06: a work order cannot exist without a valid, triaged, non-rejected request.
         ServiceRequestSnapshot snapshot = serviceRequestClient.fetchRequest(request.requestId());
         if (!TRIAGEABLE_REQUEST_STATUSES.contains(snapshot.status())) {
@@ -154,6 +167,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     @Override
     public WorkOrderResponse start(String workOrderId, AuthContext caller) {
+        revalidateCaller(caller);
         WorkOrder entity = findOrThrow(workOrderId);
         assertIsAssignedTechnician(entity, caller);
 
@@ -169,6 +183,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     @Override
     public WorkOrderResponse addProgress(String workOrderId, ProgressUpdateRequest request, AuthContext caller) {
+        revalidateCaller(caller);
         WorkOrder entity = findOrThrow(workOrderId);
         assertIsAssignedTechnician(entity, caller);
 
@@ -185,6 +200,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     @Override
     public WorkOrderResponse resolve(String workOrderId, ResolutionRequest request, AuthContext caller) {
+        revalidateCaller(caller);
         WorkOrder entity = findOrThrow(workOrderId);
         assertIsAssignedTechnician(entity, caller);
 
@@ -251,6 +267,19 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private void assertIsAssignedTechnician(WorkOrder entity, AuthContext caller) {
         if (!entity.getAssignedTechnicianId().equals(caller.getUserId())) {
             throw new ForbiddenOperationException("Only the assigned technician can update this work order.");
+        }
+    }
+
+    private void revalidateCaller(AuthContext caller) {
+        if (identityValidationClient != null) {
+            String token = caller != null ? caller.getRawToken() : null;
+            IdentityValidationSnapshot snapshot = identityValidationClient.validate(token);
+            if (snapshot == null || !snapshot.exists()) {
+                throw new ForbiddenOperationException("Identity re-validation failed: caller not found");
+            }
+            if (!snapshot.active()) {
+                throw new ForbiddenOperationException("Identity re-validation failed: caller account is inactive");
+            }
         }
     }
 }
