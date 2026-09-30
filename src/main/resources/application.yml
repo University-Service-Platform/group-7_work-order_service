@@ -15,7 +15,7 @@ spring:
     baseline-on-migrate: true
 
 server:
-  port: 8082
+  port: ${PORT:8082}
 
 management:
   endpoints:
@@ -32,8 +32,6 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-# Placeholder-and-swap block (guide §7 / §13) - same secret as service-request-service
-# ONLY for the Sprint 1 service-to-service call. See README "Service-to-service auth".
 usm:
   dev-tools:
     enabled: false
@@ -42,8 +40,6 @@ usm:
     issuer: ${JWT_ISSUER:"usm-g7-dev"}
     expiration-minutes: 60
 
-# Where to reach the sibling service - swap host/port once QA/DevOps's Docker
-# Compose network gives it a service name instead of localhost.
 services:
   identity:
     base-url: ${IDENTITY_SERVICE_BASE_URL:http://localhost:8001}
@@ -51,12 +47,10 @@ services:
     issuer: university-identity-service
     audience: university-services-platform
   service-request:
-    base-url: ${SERVICE_REQUEST_BASE_URL:"http://localhost:8081"}
+    base-url: ${SERVICE_REQUEST_BASE_URL:http://localhost:8081}
   group6-facility:
-    # Non-colliding placeholder: Group 6 hasn't provided a real port/base URL yet.
-    # Avoids colliding with service-request-service on 8081.
-    base-url: ${GROUP6_FACILITY_BASE_URL:http://localhost:9091}
-    enforce-validation: false
+    base-url: ${GROUP6_FACILITY_SERVICE_BASE_URL:${GROUP6_FACILITY_BASE_URL:http://localhost:9091}}
+    enforce-validation: ${GROUP6_FACILITY_ENFORCE_VALIDATION:false}
 
 logging:
   level:

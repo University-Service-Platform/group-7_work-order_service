@@ -6,6 +6,7 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -27,6 +28,7 @@ public class IdentityJwksProvider {
     private final IdentityProperties properties;
     private final AtomicReference<JWKSet> cachedJwkSet = new AtomicReference<>();
 
+    @Autowired
     public IdentityJwksProvider(IdentityProperties properties) {
         this(RestClient.builder().build(), properties);
     }
