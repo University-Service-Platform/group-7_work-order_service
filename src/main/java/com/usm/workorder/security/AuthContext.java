@@ -19,18 +19,24 @@ public class AuthContext {
     private final String departmentOrServiceUnit;
     private final String universityId;
     private final String accountType;
+    private final String rawToken;
 
     public AuthContext(String userId, Role role, String departmentOrServiceUnit) {
         this(userId, role != null ? Collections.singleton(role) : Collections.emptySet(),
-                departmentOrServiceUnit, null, null);
+                departmentOrServiceUnit, null, null, null);
     }
 
     public AuthContext(String userId, Set<Role> roles, String departmentOrServiceUnit) {
-        this(userId, roles, departmentOrServiceUnit, null, null);
+        this(userId, roles, departmentOrServiceUnit, null, null, null);
     }
 
     public AuthContext(String userId, Set<Role> roles, String departmentOrServiceUnit,
                        String universityId, String accountType) {
+        this(userId, roles, departmentOrServiceUnit, universityId, accountType, null);
+    }
+
+    public AuthContext(String userId, Set<Role> roles, String departmentOrServiceUnit,
+                       String universityId, String accountType, String rawToken) {
         this.userId = userId;
         this.roles = (roles != null && !roles.isEmpty())
                 ? Collections.unmodifiableSet(new LinkedHashSet<>(roles))
@@ -39,6 +45,7 @@ public class AuthContext {
         this.departmentOrServiceUnit = departmentOrServiceUnit;
         this.universityId = universityId;
         this.accountType = accountType;
+        this.rawToken = rawToken;
     }
 
     public String getUserId() {
@@ -74,6 +81,10 @@ public class AuthContext {
 
     public String getAccountType() {
         return accountType;
+    }
+
+    public String getRawToken() {
+        return rawToken;
     }
 
     public boolean isServiceCall() {
