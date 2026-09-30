@@ -6,6 +6,7 @@ import com.usm.workorder.exception.UpstreamServiceException;
 import com.usm.workorder.security.IdentityProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
@@ -13,12 +14,6 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
-/**
- * Live caller re-validation client calling Group 5's identity-access-service.
- * Calls GET /api/v1/validation/users/{user_id}?require_active=true&required_role={role}.
- * Enforces fail-closed semantics: forwards the caller's own bearer token and refuses
- * on inactive (403 ACCOUNT_INACTIVE), not found (404 USER_NOT_FOUND), unreachable, or timeout.
- */
 @Component
 public class IdentityValidationClientImpl implements IdentityValidationClient {
 
@@ -26,6 +21,7 @@ public class IdentityValidationClientImpl implements IdentityValidationClient {
 
     private final RestClient restClient;
 
+    @Autowired
     public IdentityValidationClientImpl(IdentityProperties properties) {
         this(RestClient.builder(), properties);
     }

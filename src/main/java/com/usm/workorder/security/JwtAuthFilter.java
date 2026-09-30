@@ -47,13 +47,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization");
 
         if (header != null && header.startsWith(BEARER_PREFIX)) {
-            String token = header.substring(BEARER_PREFIX.length());
+            String token = header.substring(BEARER_PREFIX.length()).trim();
             String issuer = extractIssuerUnverified(token);
             String externalIssuer = (identityProperties != null && identityProperties.getIssuer() != null)
                     ? identityProperties.getIssuer()
                     : "university-identity-service";
 
-            if (externalIssuer.equals(issuer) && externalTokenValidator != null) {
+            if (externalTokenValidator != null && (externalIssuer.equals(issuer) || "university-identity-service".equals(issuer))) {
                 // RS256 path from Group 5's identity-access-service
                 try {
                     ExternalTokenValidationResult result = externalTokenValidator.validate(token);
@@ -79,6 +79,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 } catch (JwtException | IllegalArgumentException ex) {
                     log.warn("Invalid external identity token: {}", ex.getMessage());
+                } catch (Exception ex) {
+                    log.warn("Unexpected failure validating external token: {}", ex.getMessage());
                 }
             } else {
                 // Fall through to the EXISTING HS256 path, unchanged (no iss or internal placeholder issuer)

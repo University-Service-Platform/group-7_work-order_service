@@ -225,4 +225,23 @@ class JwtAuthFilterTest {
         verify(chain).doFilter(request, response);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
+
+    @Test
+    void doFilter_externalRs256WithPrefixedRoles_grantsCorrectRoleAuthorities() throws Exception {
+        String token = createRs256Jwt(List.of("ROLE_TECHNICIAN"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token + "   "); // extra whitespace to verify trimming
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        assertThat(auth).isNotNull();
+        assertThat(auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList())
+                .containsExactly("ROLE_TECHNICIAN");
+    }
 }
